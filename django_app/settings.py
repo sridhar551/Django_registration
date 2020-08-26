@@ -82,8 +82,6 @@ DATABASES = {
         'NAME': 'django',
         'USER': 'sridhar',
         'PASSWORD': '5551',
-        'HOST': 'localhost',
-        'PORT': '',
     }
 }
 
@@ -105,6 +103,22 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}
+
+PASSWORD_HASHERS = (
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    'django.contrib.auth.hashers.BCryptPasswordHasher',
+    'django.contrib.auth.hashers.SHA1PasswordHasher',
+    'django.contrib.auth.hashers.MD5PasswordHasher',
+    'django.contrib.auth.hashers.CryptPasswordHasher',
+)
 
 
 # Internationalization
@@ -129,3 +143,5 @@ STATIC_URL = '/static/'
 # MEDIA_ROOT = MEDIA_DIR
 # MEDIA_URL = '/media/'
 # LOGIN_URL = ''
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
