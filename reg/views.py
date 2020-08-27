@@ -1,96 +1,94 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.hashers import make_password, check_password
-from rest_framework.parsers import JSONParser 
-from django.http.response import JsonResponse
-from rest_framework import status, viewsets
-from .serializers import UserRegisterSerializer, LoginSerializer
 from django.views import View
+from django.http import Http404
+# from django.contrib.auth import authenticate
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth import authenticate
 
 from .models import Employees
-from hashlib import sha256
+from .serializers import UserRegisterSerializer, LoginSerializer
 
-class EmployeeView(View):
-    permission_classes = (IsAuthenticated)
+
+class EmployeeView(APIView):
     
     def get(self, request):
-        employees = Employees.objects.all()
-        if len(employees) != 0:
-            employee_serializer = UserRegisterSerializer(employees, many=True)
-            return JsonResponse(employee_serializer.data, safe=False)
-        else:
-            return JsonResponse({'message': 'There is no employees!'}, status=status.HTTP_204_NO_CONTENT)
-        # return render(request, 'reg/employee_list.html', {'Employees' : employees})
+        try:
+            employees = Employees.objects.all()
+            serializer = UserRegisterSerializer(employees, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request):
-        employee_data = JSONParser().parse(request)
-        employee_serializer = UserRegisterSerializer(data=employee_data)
-        if employee_serializer.is_valid():
-            employee_serializer.save()
-            return JsonResponse({'message': employee_serializer.data}, status=status.HTTP_201_CREATED) 
-        return JsonResponse({'message': 'User already existed/fields are not valid!'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            employee_data = request.data
+            print (employee_data)
+            serializer = UserRegisterSerializer(data=employee_data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({'message': serializer.data}, status=status.HTTP_201_CREATED) 
+            return Response({'message': 'User already existed/fields are not valid!'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        count = Employees.objects.all().delete()
-        return JsonResponse({'message' : '{} Users deleted succussfully'.format(count[0])}, status=status.HTTP_204_NO_CONTENT)
+        try:
+            count = Employees.objects.all().delete()
+            return JsonResponse({'message' : '{} Users deleted succussfully'.format(count[0])}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'result': 'False'}), 500
+        
 
-class LoginView(View):
-    # permission_classes = (IsAuthenticated)
+class EmployeeDetail(APIView):
+
+    def get_object(self, pk):
+        try:
+            return Employees.objects.get(pk=pk)
+        except Employees.DoesNotExist:
+            return Response({'message': 'User Does not existed'})
+
+    def get(self, request, pk):
+        try:
+            employee = self.get_object(pk)
+            serializer = UserRegisterSerializer(employee)
+            return Response(serializer.data)
+        except:
+            return Response({'message': 'User Does not existed'})
+
+    def put(self, request, pk):
+        try:
+            employee = self.get_object(pk)
+            serializer = UserRegisterSerializer(employee, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+        except:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        try:
+            employee = self.get_object(pk)
+            employee.delete()
+            return Response({'message': 'User Deleted successfully'})
+        except :
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+class LoginView(APIView):
 
     def post(self, request):
-        login_data = JSONParser().parse(request)
-        email = login_data['email']
-        password = login_data['password']
-        user = authenticate(email=email, password=password)
-        login_serializer = Employees.objects.filter(email=email, password=password)
-        if login_serializer:
-            employee_serializer = UserRegisterSerializer(login_serializer, many=True)
-            description = employee_serializer.data[0]['description']
-            return JsonResponse({'description' : description}, status=status.HTTP_201_CREATED)
-        return JsonResponse({'message': 'User is not registered'})
+        try:
+            login_data = request.data            
+            email = login_data['email']            
+            password = login_data['password']
+            serializer = Employees.objects.get(email=email)            
+            if serializer:
+                employee_serializer = UserRegisterSerializer(serializer)
+                description = employee_serializer.data['description']
+                return Response({'description' : description}, status=status.HTTP_201_CREATED)            
+        except:
+            return Response({'message': 'User not existed'})
 
 
-"""from django.contrib.auth import get_user_model
-from django.core.exceptions import ImproperlyConfigured
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-
-from . import serializers
-from .utils import get_and_authenticate_user, create_user_account
-
-
-
-class AuthViewSet(viewsets.GenericViewSet):
-    permission_classes = [AllowAny, ]
-    serializer_class = serializers.EmptySerializer
-    serializer_classes = {
-        'login': serializers.LoginSerializer,
-        'register': serializers.UserRegisterSerializer
-    }
-
-    @action(methods=['POST', ], detail=False)
-    def login(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = get_and_authenticate_user(**serializer.validated_data)
-        data = serializers.AuthUserSerializer(user).data
-        return Response(data=data, status=status.HTTP_200_OK)
-
-    @action(methods=['POST', ], detail=False)
-    def register(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = create_user_account(**serializer.validated_data)
-        data = serializers.AuthUserSerializer(user).data
-        return Response(data=data, status=status.HTTP_201_CREATED)
-
-    def get_serializer_class(self):
-        if not isinstance(self.serializer_classes, dict):
-            raise ImproperlyConfigured("serializer_classes should be a dict mapping.")
-
-        if self.action in self.serializer_classes.keys():
-            return self.serializer_classes[self.action]
-        return super().get_serializer_class()"""

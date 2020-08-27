@@ -10,17 +10,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Employees
-        fields = ('name', 'email', 'password', 'description')
-
-    def validate_email(self, value):
-        user = Employees.objects.filter(email=value)
-        if user:
-            raise serializers.ValidationError("Email is already registered")
-        return BaseUserManager.normalize_email(value)
-
-    def validate_password(self, value):
-        password_validation.validate_password(value)
-        return value
+        fields = ('id', 'name', 'email', 'password', 'description')
 
 class LoginSerializer(serializers.ModelSerializer):
 
@@ -33,8 +23,7 @@ class AuthUserSerializer(serializers.ModelSerializer):
 
     class Meta:
          model = Employees
-         fields = ('id', 'email', 'name', 'description', 'is_active', 'is_staff')
-         read_only_fields = ('id', 'is_active', 'is_staff')
+         fields = all
     
     def get_auth_token(self, obj):
         token = Token.objects.create(user=obj)
